@@ -101,6 +101,7 @@ const App = () => {
       if (token === 0) return "<unk>";
       if (token === 1) return "<s>";
       if (token === 2) return "</s>";
+      if (token === 13)return "<newline>"
       if (token >= 3 && token <= 258) return api.vocabById[token];
       return chars;
     });
