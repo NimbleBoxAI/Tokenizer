@@ -30,7 +30,7 @@ const TextInput = ({ value, onChange }) => (
   />
 );
 
-const TokenizedText = ({ tokens }) => {
+const TokenizedText = ({ tokens, selectedEncoding }) => {
   return (
     <div className="token_div">
       {tokens.map((token, index) => {
@@ -40,31 +40,6 @@ const TokenizedText = ({ tokens }) => {
           token.startsWith("<newline>")
         ) {
           return <br key={index} />;
-        } else if (
-          token.endsWith("\n") ||
-          token.endsWith("<0x0A>") ||
-          token.endsWith("<newline>")
-        ) {
-          const parts = token.split("\n");
-          return parts.map((part, i) => (
-            <React.Fragment key={index + i}>
-              {i > 0 && <br />}
-              <span
-                style={{
-                  backgroundColor: pastelColors[index % pastelColors.length],
-                  padding: "0 0px",
-                  borderRadius: "3px",
-                  marginRight: "2px",
-                  marginBottom: "5px",
-                  display: "inline-block",
-                  height: "1.5em",
-                  whiteSpace: "pre-wrap",
-                }}
-              >
-                {part}
-              </span>
-            </React.Fragment>
-          ));
         } else {
           return (
             <span
@@ -74,7 +49,8 @@ const TokenizedText = ({ tokens }) => {
                 padding: "0 0px",
                 borderRadius: "3px",
                 marginRight: "2px",
-                marginBottom: "5px",
+                marginBottom:
+                  selectedEncoding == "cl100k_base" ? "0.2px" : "5px",
                 display: "inline-block",
                 height: "1.5em",
                 whiteSpace: "pre-wrap",
@@ -120,6 +96,7 @@ const App = () => {
   let api = tokenizers[selectedEncoding];
   let encodedTokens;
   let decoded;
+
   if (selectedEncoding === "MistralTokenizer") {
     api = new MistralTokenizer();
     encodedTokens = api.encode(inputText);
@@ -146,10 +123,26 @@ const App = () => {
   } else {
     encodedTokens = api.encode(inputText);
     decoded = api.decode(encodedTokens);
-    var gptokenizerDecodedTokens = [];
-    for (const token of api.decodeGenerator(encodedTokens)) {
-      gptokenizerDecodedTokens.push(token);
-    }
+    var gptokenizerDecodedTokens = encodedTokens.map((token) => {
+      const chars = api.decode([token]);
+      return chars;
+    });
+    var modifiedTokens = [];
+    gptokenizerDecodedTokens.forEach((token) => {
+      if (token.includes("\n")) {
+        let splitToken = token.split("\n");
+        splitToken.forEach((item, index) => {
+          if (index < splitToken.length - 1) {
+            modifiedTokens.push(item);
+            modifiedTokens.push("\n");
+          } else {
+            modifiedTokens.push(item);
+          }
+        });
+      } else {
+        modifiedTokens.push(token);
+      }
+    });
   }
 
   const toggleDisplay = () => {
@@ -166,7 +159,9 @@ const App = () => {
       >
         <option value="llamaTokenizer">llamaTokenizer</option>
         <option value="MistralTokenizer">MistralTokenizer</option>
-        <option value="cl100k_base">cl100k_base (GPT-3.5-turbo and GPT-4)</option>
+        <option value="cl100k_base">
+          cl100k_base (GPT-3.5-turbo and GPT-4)
+        </option>
       </select>
     </div>
   );
@@ -188,11 +183,20 @@ const App = () => {
           {displayTokens ? (
             <EncodedTokens tokens={encodedTokens} />
           ) : selectedEncoding === "MistralTokenizer" ? (
-            <TokenizedText tokens={MistralTokenizerDecodedTokens} />
+            <TokenizedText
+              tokens={MistralTokenizerDecodedTokens}
+              selectedEncoding={selectedEncoding}
+            />
           ) : selectedEncoding === "llamaTokenizer" ? (
-            <TokenizedText tokens={llamaTokenizerDecodedTokens} />
+            <TokenizedText
+              tokens={llamaTokenizerDecodedTokens}
+              selectedEncoding={selectedEncoding}
+            />
           ) : (
-            <TokenizedText tokens={gptokenizerDecodedTokens} />
+            <TokenizedText
+              tokens={modifiedTokens}
+              selectedEncoding={selectedEncoding}
+            />
           )}
         </div>
         <button onClick={toggleDisplay}>
@@ -200,10 +204,10 @@ const App = () => {
         </button>
         <div className="statistics">
           <div>
-            Characters <br /> <span>{inputText.length}</span>
+            Tokens <br /> <span>{encodedTokens.length}</span>{" "}
           </div>
           <div>
-            Tokens <br /> <span>{encodedTokens.length}</span>{" "}
+            Characters <br /> <span>{inputText.length}</span>
           </div>
         </div>
         <div
