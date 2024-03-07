@@ -164,11 +164,9 @@ const App = () => {
         value={selectedEncoding}
         onChange={handleChange}
       >
-        <option value="cl100k_base">
-          cl100k_base (GPT-3.5-turbo and GPT-4)
-        </option>
         <option value="llamaTokenizer">llamaTokenizer</option>
         <option value="MistralTokenizer">MistralTokenizer</option>
+        <option value="cl100k_base">cl100k_base (GPT-3.5-turbo and GPT-4)</option>
       </select>
     </div>
   );
