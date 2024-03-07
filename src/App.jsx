@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import cl100k_base from "gpt-tokenizer";
 import React from "react";
 import { MistralTokenizer } from "mistral-tokenizer-ts";
@@ -33,38 +33,67 @@ const TextInput = ({ value, onChange }) => (
 const TokenizedText = ({ tokens }) => {
   return (
     <div className="token_div">
-      {Array.isArray(tokens) ? (
-        tokens.map((token, index) => (
-          <span
-            key={index}
-            style={{
-              backgroundColor: pastelColors[index % pastelColors.length],
-              padding: "0 0px",
-              borderRadius: "3px",
-              marginRight: "0px",
-              marginBottom: "5px",
-              display: "inline-block",
-              height: "1.5em",
-            }}
-          >
-            {
-              <pre>
-                {String(token)
-                  .replaceAll(" ", "\u00A0")
-                  .replaceAll("\n", "<newline>")}
-              </pre>
-            }
-          </span>
-        ))
-      ) : (
-        <span>{tokens}</span>
-      )}
+      {tokens.map((token, index) => {
+        if (
+          token.startsWith("\n") ||
+          token.startsWith("<0x0A>") ||
+          token.startsWith("<newline>")
+        ) {
+          return <br key={index} />;
+        } else if (
+          token.endsWith("\n") ||
+          token.endsWith("<0x0A>") ||
+          token.endsWith("<newline>")
+        ) {
+          const parts = token.split("\n");
+          return parts.map((part, i) => (
+            <React.Fragment key={index + i}>
+              {i > 0 && <br />}
+              <span
+                style={{
+                  backgroundColor: pastelColors[index % pastelColors.length],
+                  padding: "0 0px",
+                  borderRadius: "3px",
+                  marginRight: "2px",
+                  marginBottom: "5px",
+                  display: "inline-block",
+                  height: "1.5em",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {part}
+              </span>
+            </React.Fragment>
+          ));
+        } else {
+          return (
+            <span
+              key={index}
+              style={{
+                backgroundColor: pastelColors[index % pastelColors.length],
+                padding: "0 0px",
+                borderRadius: "3px",
+                marginRight: "2px",
+                marginBottom: "5px",
+                display: "inline-block",
+                height: "1.5em",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {token}
+            </span>
+          );
+        }
+      })}
     </div>
   );
 };
 
 const EncodedTokens = ({ tokens }) => (
-  <div style={{ minWidth: "200px", fontFamily: "monospace" }}>
+  <div
+    className="token_div"
+    style={{ minWidth: "200px", fontFamily: "monospace" }}
+  >
     {"[\n  "}
     {tokens?.map((token, index) => (
       <React.Fragment key={index}>
@@ -82,7 +111,7 @@ const App = () => {
     "Welcome to tokenizer. Replace this with your text to see how tokenization works."
   );
   const [displayTokens, setDisplayTokens] = useState(false);
-  const [selectedEncoding, setSelectedEncoding] = useState("cl100k_base");
+  const [selectedEncoding, setSelectedEncoding] = useState("llamaTokenizer");
 
   const handleChange = (event) => {
     setSelectedEncoding(event.target.value);
@@ -91,17 +120,15 @@ const App = () => {
   let api = tokenizers[selectedEncoding];
   let encodedTokens;
   let decoded;
-
   if (selectedEncoding === "MistralTokenizer") {
     api = new MistralTokenizer();
     encodedTokens = api.encode(inputText);
-    decoded = api.decode(encodedTokens);
     var MistralTokenizerDecodedTokens = encodedTokens.map((token) => {
       const chars = api.decode([token], false, false);
       if (token === 0) return "<unk>";
       if (token === 1) return "<s>";
       if (token === 2) return "</s>";
-      if (token === 13)return "<newline>"
+      if (token === 13) return "<newline>";
       if (token >= 3 && token <= 258) return api.vocabById[token];
       return chars;
     });
@@ -109,28 +136,21 @@ const App = () => {
     encodedTokens = api.encode(inputText);
     decoded = api.decode(encodedTokens);
     var llamaTokenizerDecodedTokens = encodedTokens.map((token) => {
-      const chars = llamaTokenizer.decode([token], false, false);
+      const chars = api.decode([token], false, false);
       if (token === 0) return "<unk>";
       if (token === 1) return "<s>";
       if (token === 2) return "</s>";
-      if (token >= 3 && token <= 258) return llamaTokenizer.vocabById[token];
+      if (token >= 3 && token <= 258) return api.vocabById[token];
       return chars;
     });
   } else {
     encodedTokens = api.encode(inputText);
+    decoded = api.decode(encodedTokens);
+    var gptokenizerDecodedTokens = [];
+    for (const token of api.decodeGenerator(encodedTokens)) {
+      gptokenizerDecodedTokens.push(token);
+    }
   }
-
-  const decodedTokens = useMemo(() => {
-    const tokens = [];
-    if (
-      selectedEncoding !== "MistralTokenizer" &&
-      selectedEncoding !== "llamaTokenizer"
-    )
-      for (const token of api.decodeGenerator(encodedTokens)) {
-        tokens.push(token);
-      }
-    return tokens;
-  }, [encodedTokens, api]);
 
   const toggleDisplay = () => {
     setDisplayTokens(!displayTokens);
@@ -166,25 +186,20 @@ const App = () => {
           />
           <button onClick={() => setInputText("")}>Clear</button>
         </div>
-
-        <TokenizedText
-          tokens={
-            displayTokens ? (
-              <EncodedTokens tokens={encodedTokens} />
-            ) : selectedEncoding === "MistralTokenizer" ? (
-              MistralTokenizerDecodedTokens
-            ) : selectedEncoding === "llamaTokenizer" ? (
-              llamaTokenizerDecodedTokens
-            ) : (
-              decodedTokens
-            )
-          }
-        />
-
+        <div>
+          {displayTokens ? (
+            <EncodedTokens tokens={encodedTokens} />
+          ) : selectedEncoding === "MistralTokenizer" ? (
+            <TokenizedText tokens={MistralTokenizerDecodedTokens} />
+          ) : selectedEncoding === "llamaTokenizer" ? (
+            <TokenizedText tokens={llamaTokenizerDecodedTokens} />
+          ) : (
+            <TokenizedText tokens={gptokenizerDecodedTokens} />
+          )}
+        </div>
         <button onClick={toggleDisplay}>
           {displayTokens ? "Show tokenized text" : "Show Token IDs"}
         </button>
-
         <div className="statistics">
           <div>
             Characters <br /> <span>{inputText.length}</span>

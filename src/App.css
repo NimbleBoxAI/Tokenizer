@@ -82,15 +82,14 @@ input[type='button']:hover {
 }
 
 .token_div {
-  display: flex;
-  flex-wrap: wrap;
+  /* display: flex; */
+  /* flex-wrap: wrap; */
   font-family: "Roboto Mono", monospace;
   width: 100%;
   height: 200px;
   overflow-y: auto;
   padding: 10px;
   background-color: #f0ebf9ab;
-  /* line-height: 1.5; */
   align-content: flex-start;
   margin: auto;
   border-radius: 3px;
